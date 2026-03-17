@@ -1,10 +1,16 @@
+import math
+import time
+
 import pygame
 import random
 pygame.init()
 
 screen = pygame.display.set_mode((800,600))
 clock = pygame.time.Clock()
-font = pygame.font.Font('creeper_run/Minecraft.ttf', 36)
+font = pygame.font.Font('creeper_run/Minecraft.ttf', 24)
+endfont=pygame.font.Font('creeper_run/Minecraft.ttf', 50)
+bg=pygame.image.load("creeper_run/bg.jpeg")
+bg=pygame.transform.scale(bg,(800,600)) 
 fps=60
 frame_count = 0
 # player
@@ -24,13 +30,22 @@ cvx,cvy = 0,0
 creeper_speed = speed*0.85
 creeper=creeper_img.get_rect()
 creeper.topleft = cx, cy
+creeperr_sound = pygame.mixer.Sound("creeper_run/creeper_sound.mp3")
+explosion_sound = pygame.mixer.Sound("creeper_run/explosion.mp3")
 # coins
 coins=[]
-for i in range(5):
-    coin_img=pygame.image.load("creeper_run/coin.png")
+def make_coin():
+    
+    coin_img=pygame.image.load(f"creeper_run/{random.choice(['diamond.png','emerald.png'])}").convert_alpha()
     coin_img=pygame.transform.scale(coin_img,(30,30))
-    coin = pygame.Rect(random.randint(0,770), random.randint(0,570), 20, 20)
-    coins.append(coin)
+    coin = coin_img.get_rect()
+    coin.topleft = random.randint(0,770), random.randint(0,570)
+    return coin, coin_img
+for i in range(5):
+    
+    coin, coin_img = make_coin()
+    coins.append((coin, coin_img))
+sound = pygame.mixer.Sound("creeper_run/coin_collect.mp3")
     
 score = 0
 running = True
@@ -64,19 +79,45 @@ while running:
     cy += cvy
     # not adding boundary for this to make it harder
     
-    if(player.colliderect(creeper)):
+    screen.blit(bg, (0,0))
+    if player.colliderect(creeper):
         print("Game Over!")
         print("Your Score:", score)
-        running = False
+        explosion_sound.play()
+
+        # Draw GAME OVER screen
+        screen.fill((0,0,0))
+        lines = ["GAME OVER!", f"Score: {score}"]
+        for i, line in enumerate(lines):
+            text_surf = endfont.render(line, True, (255,255,255))
+            rect = text_surf.get_rect(center=(400, 300 + i*60))
+            screen.blit(text_surf, rect)
+        pygame.display.flip()
+
+        # Wait 3 seconds without freezing events
+        game_over_time = pygame.time.get_ticks()
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    waiting = False
+                    running = False
+            if pygame.time.get_ticks() - game_over_time > 3000:  # 3 seconds
+                waiting = False
+                running=False
     player.topleft=x,y
     creeper.topleft=cx,cy
-    screen.fill((0,0,0))
-    for coin in coins[:]:
+    for coin, coin_img in coins:
         screen.blit(coin_img, coin)
         if player.colliderect(coin):
-            coins.remove(coin)
             score += 10
-            coins.append(pygame.Rect(random.randint(0,770), random.randint(0,570), 20, 20))
+            sound.play()
+            coins.remove((coin, coin_img))
+            coins.append(make_coin())
+            
+            
+    if(math.hypot(cx-x, cy-y) < 150 and not creeperr_sound.get_num_channels()   ):
+        creeperr_sound.play()
     screen.blit(player_img, player)
     screen.blit(creeper_img, creeper)
     screen.blit(font.render("Score: "+str(score), True, (255,255,255)), (10,10))
