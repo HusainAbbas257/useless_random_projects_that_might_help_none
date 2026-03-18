@@ -1,2 +1,5 @@
 pokemons
 __pycache__
+*.spec
+build/
+dist/

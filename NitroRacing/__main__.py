@@ -7,7 +7,10 @@ font = pygame.font.SysFont(None, 40)
 
 bg = pygame.image.load("NitroRacing/track.jpg")
 bg = pygame.transform.scale(bg,(800,600))
-
+bgm=pygame.mixer.Sound("NitroRacing/bgm.mp3")
+bgm.play(-1)
+nitro_effect = pygame.Surface((800,600), pygame.SRCALPHA)
+nitro_effect.fill((0,255,0,30))  # semi transparent
 # sounds
 swoosh_sound = pygame.mixer.Sound("NitroRacing/car-swoosh.wav")
 collision_sound = pygame.mixer.Sound("NitroRacing/collision.wav")
@@ -29,8 +32,9 @@ lane_f={}
 for i in lanes:
     lane_f[i]=0
 def get_lane():
-    available_lanes = [l for l in lanes if lane_f[l] < 2]
-    return random.choice(available_lanes) if available_lanes else random.choice(lanes)
+    least_3 = sorted(lane_f.items(), key=lambda x: x[1])[:3]
+    lane = random.choice(least_3)[0]
+    return lane
 # nitro
 nitro_img=pygame.image.load("NitroRacing/nitro.png").convert_alpha()
 nitro_img=pygame.transform.scale(nitro_img,(50,50))
@@ -40,7 +44,7 @@ nitro_already_playing = False
 READY_THRESHOLD = 80
 
 score = 0
-speed = 5
+speed_i = 5
 
 running = True
 while running:
@@ -55,7 +59,9 @@ while running:
                 lane_index = min(len(lanes)-1, lane_index+1)
             if event.key == pygame.K_h:
                 horn_sound.play()
-
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_SPACE or nitro<5:
+                nitro_already_playing = False
     keys = pygame.key.get_pressed()
 
     # draw
@@ -69,7 +75,6 @@ while running:
     score_t=font.render(f'SCORE:{int(score)}',True,(int(score%10)*25,int(score%50)*5,int(score%25)*10))
     score_rec=score_t.get_rect(center=(700,50))
     screen.blit(score_t,score_rec)
-    pygame.display.flip()
 
     # recharge only when not using
     if not nitro_active:
@@ -77,12 +82,15 @@ while running:
 
     # activation condition
     if keys[pygame.K_SPACE] and nitro >= READY_THRESHOLD:
-        if not nitro_active:
+        if not nitro_active :
             turbo_sound.play()
+            turbo_sound.fadeout(1500)
+        nitro_already_playing = True
         nitro_active = True
     else:
-        nitro_active = False
+        nitro_active = nitro_already_playing and keys[pygame.K_SPACE]  # keep active if space is still held
 
+    speed = speed_i * (2 if nitro_active else 1)
     # drain only while active
     if nitro_active:
         nitro -= 1
@@ -90,12 +98,10 @@ while running:
             nitro = 0
             nitro_active = False
 
-    speed = 10 if nitro_active else 5
-
     player_rect.midleft = (100, lanes[lane_index])
 
     # spawn obstacles
-    if pygame.time.get_ticks() % 1000 < 20:  # every second
+    if pygame.time.get_ticks() % 750 < 20:  # every 750ms
         lane = get_lane()
         lane_f[lane]+=1
         rect = obstacle_img.get_rect(midleft=(800, lane))
@@ -117,6 +123,7 @@ while running:
             obstacles.remove(o)
         
         if player_rect.colliderect(o):
+            bgm.stop()
             # draw the exsident scene first:
             screen.blit(bg,(0,0))
             for o in obstacles:
@@ -132,7 +139,12 @@ while running:
 
     obstacles = [o for o in obstacles if o.x > -50]
 
-    score += speed * 0.05
+    score += speed * 0.05* (2 if nitro_active else 1)
+    if(score%200==0):
+        speed_i+= 1
+    if nitro_active:
+        screen.blit(nitro_effect,(0,0))
+    pygame.display.flip()
 
     clock.tick(60)
 
