@@ -3,11 +3,16 @@ pygame.init()
 
 screen = pygame.display.set_mode((800,600))
 clock = pygame.time.Clock()
-font = pygame.font.SysFont(None, 30)
+font = pygame.font.SysFont(None, 40)
 
 bg = pygame.image.load("NitroRacing/track.jpg")
 bg = pygame.transform.scale(bg,(800,600))
 
+# sounds
+swoosh_sound = pygame.mixer.Sound("NitroRacing/car-swoosh.wav")
+collision_sound = pygame.mixer.Sound("NitroRacing/collision.wav")
+horn_sound = pygame.mixer.Sound("NitroRacing/horn.wav")
+turbo_sound = pygame.mixer.Sound("NitroRacing/turbo.mp3")
 lanes = [150, 250, 350, 450,550]
 
 # player
@@ -31,6 +36,8 @@ nitro_img=pygame.image.load("NitroRacing/nitro.png").convert_alpha()
 nitro_img=pygame.transform.scale(nitro_img,(50,50))
 nitro = 100
 nitro_active = False
+nitro_already_playing = False
+READY_THRESHOLD = 80
 
 score = 0
 speed = 5
@@ -46,16 +53,42 @@ while running:
                 lane_index = max(0, lane_index-1)
             if event.key == pygame.K_s:
                 lane_index = min(len(lanes)-1, lane_index+1)
+            if event.key == pygame.K_h:
+                horn_sound.play()
 
     keys = pygame.key.get_pressed()
 
-    #nitro 
-    if keys[pygame.K_SPACE] and nitro > 0:
+    # draw
+    screen.blit(bg,(0,0))
+    screen.blit(player_img, player_rect)
+    for o in obstacles:
+        screen.blit(obstacle_img, o)
+    screen.blit(font.render(f"Score: {int(score)}", True, (255,255,255)), (10,10))
+    pygame.draw.rect(screen,((255,0,0) if nitro < READY_THRESHOLD else (255*(100-nitro)/100,255*(nitro/100),100*(nitro/100))), (10,40,abs(nitro)*2,10))  # nitro bar
+    screen.blit(nitro_img, (10,30))  # nitro icon
+    score_t=font.render(f'SCORE:{int(score)}',True,(int(score%10)*25,int(score%50)*5,int(score%25)*10))
+    score_rec=score_t.get_rect(center=(700,50))
+    screen.blit(score_t,score_rec)
+    pygame.display.flip()
+
+    # recharge only when not using
+    if not nitro_active:
+        nitro = min(100, nitro + 0.3)
+
+    # activation condition
+    if keys[pygame.K_SPACE] and nitro >= READY_THRESHOLD:
+        if not nitro_active:
+            turbo_sound.play()
         nitro_active = True
-        nitro -= 1
     else:
         nitro_active = False
-        nitro = min(100, nitro + 0.1)
+
+    # drain only while active
+    if nitro_active:
+        nitro -= 1
+        if nitro <= 0:
+            nitro = 0
+            nitro_active = False
 
     speed = 10 if nitro_active else 5
 
@@ -69,11 +102,13 @@ while running:
         obstacles.append(rect)
 
     # move obstacles
-    for o in obstacles:
-        o.x -= speed
+    
 
     # collision
     for o in obstacles:
+        o.x-=speed
+        if((((o.x-100)**2 + (o.y-player_rect.y)**2)**0.5 < 100) and (not swoosh_sound.get_num_channels())):
+            swoosh_sound.play()
         if(o.x < -50):
             try:
                 lane_f[o.y]-=1
@@ -82,28 +117,23 @@ while running:
             obstacles.remove(o)
         
         if player_rect.colliderect(o):
+            # draw the exsident scene first:
+            screen.blit(bg,(0,0))
+            for o in obstacles:
+                screen.blit(obstacle_img, o)
+            screen.blit(player_img, player_rect)
+            screen.blit(font.render(f"Score: {int(score)}", True, (0,int(score%256),0)), (300,300))
+            pygame.display.flip()
+            collision_sound.play()
             print("Game Over! Score:", score)
+            # pause for a moment to let the sound play
+            pygame.time.delay(2000)
             running = False
 
     obstacles = [o for o in obstacles if o.x > -50]
 
-    score += speed * 0.1
+    score += speed * 0.05
 
-    # draw
-    screen.blit(bg,(0,0))
-    screen.blit(player_img, player_rect)
-
-    for o in obstacles:
-        screen.blit(obstacle_img, o)
-
-    # UI
-    screen.blit(font.render(f"Score: {int(score)}", True, (255,255,255)), (10,10))
-    pygame.draw.rect(screen,(0,255,255),(10,40,nitro*2,10))  # nitro bar
-    screen.blit(nitro_img, (10,30))  # nitro icon
-    score_t=font.render(f'SCORE:{score}',True,(0,0,0))
-    score_rec=score_t.get_rect(center=(700,50))
-    screen.blit(score_t,score_rec)
-    pygame.display.flip()
     clock.tick(60)
 
 pygame.quit()
