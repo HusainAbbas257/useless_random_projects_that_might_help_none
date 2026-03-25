@@ -20,7 +20,7 @@ ammo_images['proximity shell']=pygame.image.load('I_Hate_AAA/proximity.png').con
 ads_img=pygame.image.load('I_Hate_AAA/ads.png').convert_alpha()
 
 # fonts
-ammo_cost=pygame.font.Font('i_Hate_AAA/font.otf',20)
+ammo_cost=pygame.font.Font('i_Hate_AAA/font.otf',20) #i am gonna reuse this for the aircraft damage thing
 system_font=pygame.font.SysFont(None, 36)
 
 # sounds
@@ -31,6 +31,7 @@ ammo_sound['missile']=pygame.mixer.Sound('I_Hate_AAA/missile.mp3')
 bgm=pygame.mixer.Sound('I_Hate_AAA/bgm.mp3')
 kill_sound=pygame.mixer.Sound('I_Hate_AAA/kill.mp3')
 hit_sound=pygame.mixer.Sound('I_Hate_AAA/hit.mp3')
+fly_sound=pygame.mixer.Sound('I_Hate_AAA/fly-over.mp3')
 
 global score,destroyed
 destroyed=0 #stores the time left it dissappears
@@ -59,7 +60,7 @@ class Aircraft:
                 self.health=min(self.health,self.healtho)
                 self.y-=5
                 self.y=max(self.rect.height+5,self.y)
-                self.x%=width
+                self.x=-500
             else:
                 group.remove(self)
         self.x+=self.vx; self.y+=self.vy
@@ -262,7 +263,8 @@ ads=ADS()
 last_spawn=0
 spawn_time=5000
 # stores the font surfae and its cordinates to avoid jitter while having some randomness
-damage_texts:list[tuple[pygame.Surface,tuple[int,int]]]=[] # i myself got confused so wrote this huge description
+cost_text:list[tuple[pygame.Surface,tuple[int,int]]]=[] # i myself got confused so wrote this huge description
+damage_text:list[tuple[pygame.Surface,tuple[int,int]]]=[]
 running=True
 bgm.play(-1)
 bgm.set_volume(0.3)
@@ -283,6 +285,9 @@ while running:
         last_spawn=pygame.time.get_ticks()
 
     for a in ac[:]:
+        dist=((ads.x-a.x)**2+(ads.y-a.y)**2)**0.5
+        if dist < 500:
+            fly_sound.play()
         if a.aiming_reticle:
             a.aiming_reticle.update()
         a.update(ac)
@@ -299,16 +304,16 @@ while running:
     if( frame_count%fps==0):
         destroyed=False
         spawn_time-=50
-        if damage_texts:
-            damage_texts.pop()
+        if cost_text:
+            cost_text.pop()
     ads.update()
-    ads.shoot(ammo,damage_texts)
+    ads.shoot(ammo,cost_text)
     ads.draw()
     spawn_time=max(spawn_time,1000)
     pygame.display.set_caption(f"I Hate AAA - Score: {score}")
     system_font_surface = system_font.render(f"Score: {score}", True, (255, 255, 255))
     screen.blit(system_font_surface, (10, 10))
-    for f in damage_texts:
+    for f in cost_text:
         screen.blit(f[0],f[1])
     destroyed-=1/fps
     if destroyed>0:
