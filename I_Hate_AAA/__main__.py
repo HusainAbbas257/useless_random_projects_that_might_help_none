@@ -21,6 +21,8 @@ ads_img=pygame.image.load('I_Hate_AAA/ads.png').convert_alpha()
 cursor_img=pygame.image.load('I_Hate_AAA/cursor.png').convert_alpha()
 cursor_img=pygame.transform.scale(cursor_img,(50,50))
 explosion=pygame.image.load('I_Hate_AAA/explosion.png').convert_alpha()
+
+agm_img=pygame.image.load('I_Hate_AAA/agm.png').convert_alpha()
 # fonts
 ammo_cost=pygame.font.Font('i_Hate_AAA/font.otf',20) #i am gonna reuse this for the aircraft damage thing
 system_font=pygame.font.SysFont(None, 36)
@@ -52,7 +54,8 @@ class Aircraft:
         self.rect=self.image.get_rect()
         
         self.aiming_reticle=None
-        
+        self.hostile=False
+        self.shots={'fighter':1,'civilian':9,'bomber':2}[type_]
     def update(self,group):
         self.vy=(1-(self.health/self.healtho))*3
         self.vy*= -1 if self.vy<0 else 1
@@ -85,7 +88,6 @@ class Aircraft:
             score+= {'fighter':75,'civilian':-10,'bomber':150}[self.type_]
 
     def draw(self): screen.blit(self.image,self.rect)
-
 class Ammunition:
     def __init__(self,x,y,type_):
         if type_ in ['missile','AAA','proximity shell']:
@@ -170,24 +172,63 @@ class ADS:
             ammo_sound[self.ammo_type].set_volume(0.5)
             
 
+class AGM:
+    # air to ground missile
+    def __init__(self,ac:Aircraft,ads:ADS):
+        self.x,self.y=ac.x,ac.y
+        self.ac=ac
+        self.ads=ads
+        self.vx,self.vy=ac.vx*0.9,ac.vy+5
+        self.a=0.1
+        self.img=pygame.transform.scale(agm_img,(20,80))
+        self.rect=self.img.get_rect()
+    def update(self,agmgroup,blastgroup):
+        dx = self.ads.x - self.x
+        if dx > 0:
+            self.vx += self.a
+        else:
+            self.vx -= self.a
+        max_vx = 6
+        self.vx = max(-max_vx, min(max_vx, self.vx))
+        self.x += self.vx
+        self.y += self.vy
+        self.rect.center = (self.x, self.y)
+        if(self.y>=self.ads.y):
+            self.blast(agmgroup,blastgroup)
+    def blast(self,agmgroup,blastgroup):
+        agmgroup.remove(self)
+        blastgroup.append(blast(self))
+    def draw(self):
+        screen.blit(self.img,self.rect)
 class blast:
-    def __init__(self,ammo:Ammunition):
-        self.ammo=ammo
-        self.x,self.y=ammo.x,ammo.y
-        
-        self.image=pygame.transform.scale(explosion,(ammo.detonation_radius,ammo.detonation_radius))
-        self.rect=self.image.get_rect()
-        self.rect.center=self.x,self.y
-        self.rect.bottomright=(self.x,self.y)
-        self.timeo={'missile':1,'AAA':0,'proximity shell':2}[ammo.type_]
-        self.time=self.timeo
-        self.damaged=[]
+    def __init__(self, ammo):
+        self.ammo = ammo
+        self.x, self.y = ammo.x, ammo.y
+
+        if isinstance(ammo, AGM):
+            size = 50
+            self.timeo = 1
+        else:
+            size = ammo.detonation_radius
+            self.timeo = {'missile':1,'AAA':0,'proximity shell':2}[ammo.type_]
+
+        self.image = pygame.transform.scale(explosion, (size, size))
+        self.rect = self.image.get_rect(center=(self.x, self.y))
+        self.time = self.timeo
+        self.damaged = []
     def damage(self,a:Aircraft):
-        if a in self.damaged: return
+        if isinstance(self.ammo, AGM):
+            return self.damagep()
+        if a in self.damaged: return False
         dist=((self.x+5-a.x)**2+(self.y+5-a.y)**2)**0.5
         if dist<self.ammo.detonation_radius-a.rect.width-self.ammo.rect.height:
             a.health-=self.ammo.damage*(self.time/self.timeo)*0.75
             self.damaged.append(a)
+        return False
+    def damagep(self):
+        if self.rect.colliderect(ads.rect):
+            return True
+        return False
     def update(self,clock:pygame.time.Clock,group:list):
         self.time-= 1/clock.get_fps()
         if self.time<=0: group.remove(self)
@@ -224,12 +265,18 @@ class AimingReticle:
 
     def draw(self):
         screen.blit(self.image, self.rect)  
-def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast]):
+def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast],agmlist:list[AGM],ads:ADS):
+    death=False
     global score,destroyed
     for a in ac_list:
         for ammo in ammo_list:
             dist=((ammo.x-a.x)**2+(ammo.y-a.y)**2)**0.5
             if dist<(ammo.detonation_radius)-a.rect.width-ammo.rect.height:
+                a.hostile=True
+                if a.shots > 0 and a.type_!='civilian' and a.hostile:
+                        a.shots -= 1
+                        agmlist.append(AGM(a, ads))
+                        a.hostile=False
                 blasts.append(blast(ammo))
                 if a.health<=0:
                     ac_list.remove(a)
@@ -241,6 +288,11 @@ def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast]
                 ammo_list.remove(ammo)
                 break
             if ammo.rect.colliderect(a.rect):
+                a.hostile=True
+                if a.shots > 0 and a.type_!='civilian' and a.hostile:
+                    a.shots -= 1
+                    agmlist.append(AGM(a, ads))
+                    a.hostile=False
                 hit_sound.play()
                 hit_sound.set_volume(0.4)
                 a.health-=ammo.damage
@@ -254,7 +306,9 @@ def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast]
                 break
         for b in blasts:
             if a in b.damaged: continue
-            b.damage(a)
+            death=b.damage(a)
+            if death:
+                return death
             if a.health<=0:
                 if a in ac_list:
                     ac_list.remove(a)
@@ -263,6 +317,7 @@ def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast]
                 kill_sound.set_volume(0.7)
                 
                 score+= {'fighter':100,'civilian':-10,'bomber':200}[a.type_]
+    return death
 frame_count=0
 fps=60
 # start menu
@@ -311,7 +366,8 @@ menu()
 # main game loop 
 ac=[Aircraft()]
 ammo=[]
-blasts=[]
+blasts:list[blast]=[]
+agms:list[AGM]=[]
 ads=ADS()
 last_spawn=0
 spawn_time=5000
@@ -351,7 +407,7 @@ while running:
 
     screen.blit(bg,(0,0))
     
-    if pygame.time.get_ticks()-last_spawn>spawn_time:
+    if pygame.time.get_ticks()-last_spawn>spawn_time and len(ac)<=5:
         ac.append(Aircraft(random.choice(['fighter','civilian','bomber'])))
         last_spawn=pygame.time.get_ticks()
 
@@ -366,10 +422,16 @@ while running:
     for b in ammo[:]:
         b.update(ammo)
         b.draw()
+    for agm in agms[:]:
+        agm.update(agms,blasts)
+        agm.draw()
     for b in blasts[:]:
         b.update(clock,blasts)
+        
         b.display()
-    collide(ammo,ac,blasts)
+    
+    if collide(ammo,ac,blasts,agms,ads):
+        running=False
     if( frame_count%fps==0):
         destroyed=False
         spawn_time-=50
