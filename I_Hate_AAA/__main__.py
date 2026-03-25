@@ -33,7 +33,6 @@ ammo_sound['missile']=pygame.mixer.Sound('I_Hate_AAA/missile.mp3')
 bgm=pygame.mixer.Sound('I_Hate_AAA/bgm.mp3')
 kill_sound=pygame.mixer.Sound('I_Hate_AAA/kill.mp3')
 hit_sound=pygame.mixer.Sound('I_Hate_AAA/hit.mp3')
-fly_sound=pygame.mixer.Sound('I_Hate_AAA/fly-over.mp3')
 
 global score,destroyed
 destroyed=0 #stores the time left it dissappears
@@ -357,9 +356,7 @@ while running:
         last_spawn=pygame.time.get_ticks()
 
     for a in ac[:]:
-        dist=((ads.x-a.x)**2+(ads.y-a.y)**2)**0.5
-        if dist < 500:
-            fly_sound.play()
+        
         if a.aiming_reticle:
             a.aiming_reticle.update()
         a.update(ac)
