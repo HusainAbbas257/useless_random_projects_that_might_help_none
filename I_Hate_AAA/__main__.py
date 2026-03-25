@@ -21,7 +21,8 @@ ads_img=pygame.image.load('I_Hate_AAA/ads.png').convert_alpha()
 cursor_img=pygame.image.load('I_Hate_AAA/cursor.png').convert_alpha()
 cursor_img=pygame.transform.scale(cursor_img,(50,50))
 explosion=pygame.image.load('I_Hate_AAA/explosion.png').convert_alpha()
-
+health_img=pygame.image.load("I_Hate_AAA/health.png").convert_alpha()
+health_img=pygame.transform.scale(health_img,(140,16))
 agm_img=pygame.image.load('I_Hate_AAA/agm.png').convert_alpha()
 # fonts
 ammo_cost=pygame.font.Font('i_Hate_AAA/font.otf',20) #i am gonna reuse this for the aircraft damage thing
@@ -118,6 +119,7 @@ class ADS:
         self.shooting=False
         self.start_time=0
         self.ammo_type='missile'
+        self.health=5
         # for line of sight 
         self.los_length=1000
         self.los_image=pygame.Surface((1,self.los_length))
@@ -227,6 +229,7 @@ class blast:
         return False
     def damagep(self):
         if self.rect.colliderect(ads.rect):
+            self.time=0
             return True
         return False
     def update(self,clock:pygame.time.Clock,group:list):
@@ -359,10 +362,46 @@ def menu():
         screen.blit(cursor_img,cursor_rect)
         pygame.display.flip()
         clock.tick(fps)
+def end():
+    pygame.event.set_grab(False)
+    pygame.mouse.set_visible(False)
+    bgm.set_volume(1.5*bgm.get_volume())
+    
+    cursor_rect=cursor_img.get_rect()
+    
+    end_rect = pygame.Rect(width//2,height//2,width//10,height//10)
+    end_rect.center=width//2,height//2 
+    global score
+    play_text = system_font.render(f"END", True, (255,255,255))
+    
+    while True:
+        cursor_rect.center= pygame.mouse.get_pos()
+        screen.blit(bg,(0,0))
+        for event in pygame.event.get():
+            if event.type==pygame.QUIT:
+                raise SystemExit
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if( end_rect.colliderect(cursor_rect)):
+                    
+                    pygame.event.set_grab(True)
+                    bgm.play()
+                    return
+            
+        # button 1
+        pygame.draw.rect(screen, (50,50,50) if end_rect.colliderect(cursor_rect) else (25,25,25), end_rect)
 
+        
+        screen.blit(system_font.render(f'Score:{score}',True,"#130D0D"),(width//2,1*height//4))
+        text_rect = play_text.get_rect(center=end_rect.center)
+        screen.blit(play_text, text_rect)
+        
+        screen.blit(cursor_img,cursor_rect)
+        pygame.display.flip()
+        clock.tick(fps)
 
 
 menu()
+
 # main game loop 
 ac=[Aircraft()]
 ammo=[]
@@ -431,7 +470,7 @@ while running:
         b.display()
     
     if collide(ammo,ac,blasts,agms,ads):
-        running=False
+        ads.health-=1
     if( frame_count%fps==0):
         destroyed=False
         spawn_time-=50
@@ -452,7 +491,14 @@ while running:
     ammo_selected = system_font.render(f'{ads.ammo_type} selected', False, "#8a3838ff")
     ammo_selected_rect = ammo_selected.get_rect()
     ammo_selected_rect.bottomright = (width - 5, height - 5)
-
-    screen.blit(ammo_selected, ammo_selected_rect)
+    # health
+    if(ads.health<=0):
+        end()
+        running=False
+        break
+    visible_w = int(140 * ads.health/5)
+    cropped = health_img.subsurface(0,0,visible_w,16)
+    screen.blit(cropped, (100,9*(height//10)))
+    
     pygame.display.flip()
     clock.tick(fps)
