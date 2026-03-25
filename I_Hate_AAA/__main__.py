@@ -18,7 +18,9 @@ ammo_images['AAA']=pygame.image.load('I_Hate_AAA/AAA.png').convert_alpha()
 ammo_images['missile']=pygame.image.load('I_Hate_AAA/missile.png').convert_alpha()
 ammo_images['proximity shell']=pygame.image.load('I_Hate_AAA/proximity.png').convert_alpha()
 ads_img=pygame.image.load('I_Hate_AAA/ads.png').convert_alpha()
-
+cursor_img=pygame.image.load('I_Hate_AAA/cursor.png').convert_alpha()
+cursor_img=pygame.transform.scale(cursor_img,(50,50))
+explosion=pygame.image.load('I_Hate_AAA/explosion.png').convert_alpha()
 # fonts
 ammo_cost=pygame.font.Font('i_Hate_AAA/font.otf',20) #i am gonna reuse this for the aircraft damage thing
 system_font=pygame.font.SysFont(None, 36)
@@ -36,6 +38,7 @@ fly_sound=pygame.mixer.Sound('I_Hate_AAA/fly-over.mp3')
 global score,destroyed
 destroyed=0 #stores the time left it dissappears
 score=0
+mouse_use=False
 class Aircraft:
     def __init__(self,type_='fighter'):
         self.type_=type_
@@ -122,11 +125,18 @@ class ADS:
 
     def update(self):
         keys=pygame.key.get_pressed()
-        if keys[pygame.K_a]: self.x-=self.vx
-        if keys[pygame.K_d]: self.x+=self.vx
-        if keys[pygame.K_1]: self.ammo_type='missile'
-        if keys[pygame.K_2]: self.ammo_type='AAA'
-        if keys[pygame.K_3]: self.ammo_type='proximity shell'
+        if not mouse_use:
+            if keys[pygame.K_a]: self.x-=self.vx
+            if keys[pygame.K_d]: self.x+=self.vx
+        else:
+            mx= pygame.mouse.get_pos()[0]
+            dx = mx - self.x
+            if abs(dx) > self.vx:
+                self.x += self.vx if dx > 0 else -self.vx
+        if keys[pygame.K_1] and not mouse_use: self.ammo_type='missile'
+        if keys[pygame.K_2] and not mouse_use: self.ammo_type='AAA'
+        if keys[pygame.K_3] and not mouse_use: self.ammo_type='proximity shell'
+        
         self.x%=width #best one liner i have ever written
         self.rect.center=(self.x,self.y)
         if self.ammo_type=='missile' or self.ammo_type=='proximity shell':
@@ -165,13 +175,13 @@ class blast:
     def __init__(self,ammo:Ammunition):
         self.ammo=ammo
         self.x,self.y=ammo.x,ammo.y
-        self.rect=pygame.Rect(0,0,ammo.detonation_radius//4,ammo.detonation_radius//4)
+        
+        self.image=pygame.transform.scale(explosion,(ammo.detonation_radius,ammo.detonation_radius))
+        self.rect=self.image.get_rect()
         self.rect.center=self.x,self.y
         self.rect.bottomright=(self.x,self.y)
-        self.image=pygame.Surface((ammo.detonation_radius,ammo.detonation_radius), pygame.SRCALPHA)
         self.timeo={'missile':1,'AAA':0,'proximity shell':2}[ammo.type_]
         self.time=self.timeo
-        self.image.fill((200,100,100,int(255*(self.time/self.timeo))))
         self.damaged=[]
     def damage(self,a:Aircraft):
         if a in self.damaged: return
@@ -184,7 +194,7 @@ class blast:
         if self.time<=0: group.remove(self)
     def display(self):
         if self.time<=0: return
-        self.image.fill((200,100,100,int(255*(self.time/self.timeo))))      
+        self.image.set_alpha(int(255*(self.time/self.timeo))) 
         screen.blit(self.image,self.rect)
 class AimingReticle:
     def __init__(self, ammo:Ammunition, ac):
@@ -256,6 +266,50 @@ def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast]
                 score+= {'fighter':100,'civilian':-10,'bomber':200}[a.type_]
 frame_count=0
 fps=60
+# start menu
+def menu():
+    pygame.event.set_grab(False)
+    pygame.mouse.set_visible(False)
+    bgm.stop()
+    
+    cursor_rect=cursor_img.get_rect()
+    
+    play_rect = pygame.Rect(width//2,height//2,width//10,height//10)
+    play_rect.center=width//2,height//2 
+    play_text = system_font.render("Play(p)", True, (255,255,255))
+    
+    while True:
+        cursor_rect.center= pygame.mouse.get_pos()
+        screen.blit(bg,(0,0))
+        for event in pygame.event.get():
+            if event.type==pygame.QUIT:
+                raise SystemExit
+            if event.type==pygame.KEYDOWN:
+                if(event.key==pygame.K_p):
+                    bgm.play()
+                    
+                    pygame.event.set_grab(True)
+                    return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if( play_rect.colliderect(cursor_rect)):
+                    
+                    pygame.event.set_grab(True)
+                    bgm.play()
+                    return
+        # button 1
+        pygame.draw.rect(screen, (50,50,50) if play_rect.colliderect(cursor_rect) else (25,25,25), play_rect)
+
+        text_rect = play_text.get_rect(center=play_rect.center)
+        screen.blit(play_text, text_rect)
+        
+        screen.blit(cursor_img,cursor_rect)
+        pygame.display.flip()
+        clock.tick(fps)
+
+
+
+menu()
+# main game loop 
 ac=[Aircraft()]
 ammo=[]
 blasts=[]
@@ -269,14 +323,32 @@ running=True
 bgm.play(-1)
 bgm.set_volume(0.3)
 while running:
+    pygame.event.set_grab(False)
+    pygame.mouse.set_visible(False)
     frame_count+=1
     for event in pygame.event.get():
         if event.type==pygame.QUIT: running=False
-        if event.type==pygame.KEYDOWN and event.key==pygame.K_w:
-            ads.shooting=True
-            ads.start_time=pygame.time.get_ticks()
-        if event.type==pygame.KEYUP and event.key==pygame.K_w:
+        if event.type==pygame.KEYDOWN:
+            if (event.key==pygame.K_w) and not mouse_use:
+                ads.shooting=True
+                ads.start_time=pygame.time.get_ticks()
+            if event.key==pygame.K_m:
+                mouse_use=not mouse_use
+            if(event.key==pygame.K_ESCAPE):
+                menu()
+        if (event.type==pygame.KEYUP and event.key==pygame.K_w)and not mouse_use:
             ads.shooting=False
+        if event.type == pygame.MOUSEWHEEL and mouse_use:
+            index=['missile','AAA','proximity shell'].index(ads.ammo_type)
+            index = (index - event.y) % 3
+            ads.ammo_type=['missile','AAA','proximity shell'][index]
+        if event.type == pygame.MOUSEBUTTONDOWN and mouse_use:
+            if event.button == 1:
+                ads.shooting=True
+                ads.start_time=pygame.time.get_ticks()
+        if event.type == pygame.MOUSEBUTTONUP and mouse_use:
+            if event.button == 1:
+                ads.shooting=False
 
     screen.blit(bg,(0,0))
     
