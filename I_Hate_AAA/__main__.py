@@ -23,6 +23,15 @@ ads_img=pygame.image.load('I_Hate_AAA/ads.png').convert_alpha()
 ammo_cost=pygame.font.Font('i_Hate_AAA/font.otf',20)
 system_font=pygame.font.SysFont(None, 36)
 
+# sounds
+ammo_sound:dict[str,pygame.mixer.Sound]={}
+ammo_sound['AAA']=pygame.mixer.Sound('I_Hate_AAA/aaa.mp3')
+ammo_sound['proximity shell']=pygame.mixer.Sound('I_Hate_AAA/proximity.mp3')
+ammo_sound['missile']=pygame.mixer.Sound('I_Hate_AAA/missile.mp3')
+bgm=pygame.mixer.Sound('I_Hate_AAA/bgm.mp3')
+kill_sound=pygame.mixer.Sound('I_Hate_AAA/kill.mp3')
+hit_sound=pygame.mixer.Sound('I_Hate_AAA/hit.mp3')
+
 global score,destroyed
 destroyed=0 #stores the time left it dissappears
 score=0
@@ -68,6 +77,8 @@ class Aircraft:
             
             global score,destroyed
             destroyed=1 if a.type_!='civilian' else 0
+            kill_sound.play()
+            kill_sound.set_volume(0.7)
             score+= {'fighter':75,'civilian':-10,'bomber':150}[self.type_]
 
     def draw(self): screen.blit(self.image,self.rect)
@@ -136,7 +147,7 @@ class ADS:
         if not self.shooting: return
         if now-self.start_time>1000:
             self.shooting=False; return
-        if now-self.last_shot>={'missile':500,'AAA':25,'proximity shell':750}[self.ammo_type]:
+        if now-self.last_shot>={'missile':500,'AAA':40,'proximity shell':750}[self.ammo_type]:
             self.last_shot=now
             group.append(Ammunition(self.x,self.y,self.ammo_type))
             while len(damagefontgroup)>=5:
@@ -144,8 +155,10 @@ class ADS:
             cost={'missile':50,'AAA':1,'proximity shell':25}[self.ammo_type]
             damagefontgroup.append((ammo_cost.render(f'-{cost}',True ,( (random.randint(150,255),random.randint(0,100),random.randint(0,100)))),(self.x+random.uniform(-10,10),self.y+random.uniform(-10,10))))
             global score
-            
             score-= cost
+            ammo_sound[self.ammo_type].play()
+            ammo_sound[self.ammo_type].set_volume(0.5)
+            
 
 class blast:
     def __init__(self,ammo:Ammunition):
@@ -211,14 +224,20 @@ def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast]
                 if a.health<=0:
                     ac_list.remove(a)
                     destroyed=1 if a.type_!='civilian' else 0
+                    kill_sound.play()
+                    kill_sound.set_volume(0.7)
                     score+= {'fighter':100,'civilian':-10,'bomber':200}[a.type_]
                 
                 ammo_list.remove(ammo)
                 break
             if ammo.rect.colliderect(a.rect):
+                hit_sound.play()
+                hit_sound.set_volume(0.4)
                 a.health-=ammo.damage
                 if a.health<=0:
                     destroyed=1 if a.type_!='civilian' else 0
+                    kill_sound.play()
+                    kill_sound.set_volume(0.7)
                     ac_list.remove(a)
                     score+= {'fighter':100,'civilian':-10,'bomber':200}[a.type_]
                 ammo_list.remove(ammo)
@@ -230,6 +249,8 @@ def collide(ammo_list:list[Ammunition],ac_list:list[Aircraft],blasts:list[blast]
                 if a in ac_list:
                     ac_list.remove(a)
                 destroyed=1 if a.type_!='civilian' else 0
+                kill_sound.play()
+                kill_sound.set_volume(0.7)
                 
                 score+= {'fighter':100,'civilian':-10,'bomber':200}[a.type_]
 frame_count=0
@@ -243,6 +264,8 @@ spawn_time=5000
 # stores the font surfae and its cordinates to avoid jitter while having some randomness
 damage_texts:list[tuple[pygame.Surface,tuple[int,int]]]=[] # i myself got confused so wrote this huge description
 running=True
+bgm.play(-1)
+bgm.set_volume(0.3)
 while running:
     frame_count+=1
     for event in pygame.event.get():
@@ -290,5 +313,10 @@ while running:
     destroyed-=1/fps
     if destroyed>0:
         screen.blit(system_font.render("aircraft destroyed", True, (255, 200, 200)),(width//2,50))
+    ammo_selected = system_font.render(f'{ads.ammo_type} selected', False, "#8a3838ff")
+    ammo_selected_rect = ammo_selected.get_rect()
+    ammo_selected_rect.bottomright = (width - 5, height - 5)
+
+    screen.blit(ammo_selected, ammo_selected_rect)
     pygame.display.flip()
     clock.tick(fps)
