@@ -1,7 +1,7 @@
 import random, pygame
 from pygame import color
 pygame.init()
-
+import math
 
 screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
 width,height=screen.get_size()
@@ -37,17 +37,23 @@ bgm=pygame.mixer.Sound('I_Hate_AAA/bgm.mp3')
 kill_sound=pygame.mixer.Sound('I_Hate_AAA/kill.mp3')
 hit_sound=pygame.mixer.Sound('I_Hate_AAA/hit.mp3')
 
-global score,destroyed
+global score,destroyed, level
 destroyed=0 #stores the time left it dissappears
-score=0
+score=0 
+level=2  #  1-basic 2-mid 3-hard 4- impossible
 mouse_use=False
 class Aircraft:
     def __init__(self,type_='fighter'):
+        global level
         self.type_=type_
         self.healtho={'fighter':150,'civilian':75,'bomber':200}[type_]
+        if(type_!='civilian'):
+            self.healtho*=level/2
         self.health=self.healtho
         self.x,self.y=-1000,random.randint(50,200)
         self.vx = {'fighter':15,'civilian':8,'bomber':10}[type_]
+        if(type_!='civilian'):
+            self.vx*=level/2
         self.vy = random.uniform(0,1)
         self.image=aircraft_images[type_]
         # resize the image to be of rect size
@@ -55,18 +61,21 @@ class Aircraft:
         self.rect=self.image.get_rect()
         
         self.aiming_reticle=None
-        self.hostile=False
-        self.shots={'fighter':1,'civilian':9,'bomber':2}[type_]
+        self.hostile=level>2
+        self.shots={'fighter':1,'civilian':0,'bomber':2}[type_]
+        if(type_!='civilian'):
+            self.shots*=level/2
+            self.shots=int(self.shots)
     def update(self,group):
         self.vy=(1-(self.health/self.healtho))*3
         self.vy*= -1 if self.vy<0 else 1
         if self.x>width:
             if(self.health<self.healtho*0.9) and self.type_!='civilian':
-                self.health*=1.25
+                self.health*=1 + (level - 1) * (1 / 3)
                 self.health=min(self.health,self.healtho)
                 self.y-=5
                 self.y=max(self.rect.height+5,self.y)
-                self.x=-500
+                self.x=-1000
             else:
                 group.remove(self)
         self.x+=self.vx; self.y+=self.vy
@@ -180,8 +189,8 @@ class AGM:
         self.x,self.y=ac.x,ac.y
         self.ac=ac
         self.ads=ads
-        self.vx,self.vy=ac.vx*0.9,ac.vy+5
-        self.a=0.1
+        self.vx,self.vy=ac.vx*0.9,ac.vy+4*(level/2)
+        self.a=0.2 * (level/2)
         self.img=pygame.transform.scale(agm_img,(20,80))
         self.rect=self.img.get_rect()
     def update(self,agmgroup,blastgroup):
@@ -190,7 +199,7 @@ class AGM:
             self.vx += self.a
         else:
             self.vx -= self.a
-        max_vx = 6
+        max_vx = 4*(level/2)
         self.vx = max(-max_vx, min(max_vx, self.vx))
         self.x += self.vx
         self.y += self.vy
@@ -209,7 +218,7 @@ class blast:
 
         if isinstance(ammo, AGM):
             size = 50
-            self.timeo = 1
+            self.timeo = 0.75*(level/2)
         else:
             size = ammo.detonation_radius
             self.timeo = {'missile':1,'AAA':0,'proximity shell':2}[ammo.type_]
@@ -325,17 +334,25 @@ frame_count=0
 fps=60
 # start menu
 def menu():
+    global level
     pygame.event.set_grab(False)
     pygame.mouse.set_visible(False)
-    bgm.stop()
+    bgm.set_volume(1.5*bgm.get_volume())
     
     cursor_rect=cursor_img.get_rect()
     
-    play_rect = pygame.Rect(width//2,height//2,width//10,height//10)
+    play_rect = pygame.Rect(width//2,height//2+height//3,4*width//5,height//10)
     play_rect.center=width//2,height//2 
     play_text = system_font.render("Play(p)", True, (255,255,255))
     
+    level_rect = pygame.Rect(0,0,4*width//5,height//10)
+    level_rect.center=width//2,(height//2) +(height)//6
+    frame=0
     while True:
+        level_text = system_font.render(f"level (L):{ {1:'basic',2:'mid',3:'hard',4:'impossible'}[level]}", True, (255,255,255))
+        frame+=0.1
+        colorl = (int((math.sin(frame * 0.1) + 1) * 127.5), int((math.sin(frame * 0.1 + 2) + 1) * 127.5) , int((math.sin(frame * 0.1 + 4) + 1) * 127.5),100)
+        colord= (int(colorl[0]*0.1),int(colorl[1]*0.1),int(colorl[2]*0.1),100)
         cursor_rect.center= pygame.mouse.get_pos()
         screen.blit(bg,(0,0))
         for event in pygame.event.get():
@@ -346,18 +363,29 @@ def menu():
                     bgm.play()
                     
                     pygame.event.set_grab(True)
+                    bgm.set_volume(0.75*bgm.get_volume())
                     return
+                if(event.key==pygame.K_l):
+                    level%=4
+                    level+=1
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if( play_rect.colliderect(cursor_rect)):
                     
                     pygame.event.set_grab(True)
                     bgm.play()
+                    bgm.set_volume(0.75*bgm.get_volume())
                     return
+                if(level_rect.colliderect(cursor_rect)):
+                    level%=4
+                    level+=1
         # button 1
-        pygame.draw.rect(screen, (50,50,50) if play_rect.colliderect(cursor_rect) else (25,25,25), play_rect)
-
+        pygame.draw.rect(screen, colord if play_rect.colliderect(cursor_rect) else colorl, play_rect)
+        pygame.draw.rect(screen, colord if level_rect.colliderect(cursor_rect) else colorl, level_rect)
+        
         text_rect = play_text.get_rect(center=play_rect.center)
+        
         screen.blit(play_text, text_rect)
+        screen.blit(level_text, level_text.get_rect(center=level_rect.center))
         
         screen.blit(cursor_img,cursor_rect)
         pygame.display.flip()
@@ -369,12 +397,17 @@ def end():
     
     cursor_rect=cursor_img.get_rect()
     
-    end_rect = pygame.Rect(width//2,height//2,width//10,height//10)
+    end_rect = pygame.Rect(width//2,height//2+height//3,4*width//5,height//10)
     end_rect.center=width//2,height//2 
     global score
     play_text = system_font.render(f"END", True, (255,255,255))
-    
+    frame=0
     while True:
+        frame+=0.1
+        # rainbow effect
+        # btw who said colorwheel is so simple i too just learnt that it too has use of trigno
+        colorl = (int((math.sin(frame * 0.1) + 1) * 127.5), int((math.sin(frame * 0.1 + 2) + 1) * 127.5) , int((math.sin(frame * 0.1 + 4) + 1) * 127.5))
+        colord= (int(colorl[0]*0.1),int(colorl[1]*0.1),int(colorl[2]*0.1))
         cursor_rect.center= pygame.mouse.get_pos()
         screen.blit(bg,(0,0))
         for event in pygame.event.get():
@@ -388,10 +421,12 @@ def end():
                     return
             
         # button 1
-        pygame.draw.rect(screen, (50,50,50) if end_rect.colliderect(cursor_rect) else (25,25,25), end_rect)
+        pygame.draw.rect(screen, colord if end_rect.colliderect(cursor_rect) else colorl, end_rect)
 
-        
-        screen.blit(system_font.render(f'Score:{score}',True,"#130D0D"),(width//2,1*height//4))
+        score_text=system_font.render(f'Score:{score}',True,colorl )
+        score_rect=score_text.get_rect()
+        score_rect.center=(width//2,1*height//4)
+        screen.blit(score_text,score_rect)
         text_rect = play_text.get_rect(center=end_rect.center)
         screen.blit(play_text, text_rect)
         
@@ -473,13 +508,13 @@ while running:
         ads.health-=1
     if( frame_count%fps==0):
         destroyed=False
-        spawn_time-=50
+        spawn_time-=50*(level/2)
         if cost_text:
             cost_text.pop()
     ads.update()
     ads.shoot(ammo,cost_text)
     ads.draw()
-    spawn_time=max(spawn_time,1000)
+    spawn_time=max(spawn_time,1000/(level/2))
     pygame.display.set_caption(f"I Hate AAA - Score: {score}")
     system_font_surface = system_font.render(f"Score: {score}", True, (255, 255, 255))
     screen.blit(system_font_surface, (10, 10))
