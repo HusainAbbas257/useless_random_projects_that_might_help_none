@@ -33,15 +33,20 @@ ammo_sound:dict[str,pygame.mixer.Sound]={}
 ammo_sound['AAA']=pygame.mixer.Sound('I_Hate_AAA/aaa.mp3')
 ammo_sound['proximity shell']=pygame.mixer.Sound('I_Hate_AAA/proximity.mp3')
 ammo_sound['missile']=pygame.mixer.Sound('I_Hate_AAA/missile.mp3')
-bgm=pygame.mixer.Sound('I_Hate_AAA/bgm.mp3')
+bgms=[]
+for i in range(1,4):
+    bgms.append(pygame.mixer.Sound(f'I_Hate_AAA/bgm{i}.mp3'))
 kill_sound=pygame.mixer.Sound('I_Hate_AAA/kill.mp3')
 hit_sound=pygame.mixer.Sound('I_Hate_AAA/hit.mp3')
 
-global score,destroyed, level
+global score,destroyed, level, bgmn ,ch
+bgmn=1
 destroyed=0 #stores the time left it dissappears
 score=0 
 level=2  #  1-basic 2-mid 3-hard 4- impossible
 mouse_use=False
+bgm=bgms[bgmn-1]
+ch=bgm.play(-1)
 class Aircraft:
     def __init__(self,type_='fighter'):
         global level
@@ -334,7 +339,8 @@ frame_count=0
 fps=60
 # start menu
 def menu():
-    global level
+    global level,bgmn,ch
+    bgm=bgms[bgmn-1]
     pygame.event.set_grab(False)
     pygame.mouse.set_visible(False)
     bgm.set_volume(1.5*bgm.get_volume())
@@ -347,9 +353,15 @@ def menu():
     
     level_rect = pygame.Rect(0,0,4*width//5,height//10)
     level_rect.center=width//2,(height//2) +(height)//6
+    
+    
+    bgm_rect = pygame.Rect(0,0,4*width//5,height//10)
+    bgm_rect.center=width//2,(height//2) +(2*height)//6
     frame=0
     while True:
+        bgm=bgms[bgmn-1]
         level_text = system_font.render(f"level (L):{ {1:'basic',2:'mid',3:'hard',4:'impossible'}[level]}", True, (255,255,255))
+        bgm_text = system_font.render(f"Music (g):{ bgmn}", True, (255,255,255))
         frame+=0.1
         colorl = (int((math.sin(frame * 0.1) + 1) * 127.5), int((math.sin(frame * 0.1 + 2) + 1) * 127.5) , int((math.sin(frame * 0.1 + 4) + 1) * 127.5),100)
         colord= (int(colorl[0]*0.1),int(colorl[1]*0.1),int(colorl[2]*0.1),100)
@@ -368,6 +380,13 @@ def menu():
                 if(event.key==pygame.K_l):
                     level%=4
                     level+=1
+                if(event.key==pygame.K_g):
+                    bgm.stop()
+                    bgmn%=len(bgms)
+                    bgmn+=1
+                    bgm=bgms[bgmn-1]
+                    if not ch:
+                        ch=bgm.play(-1)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if( play_rect.colliderect(cursor_rect)):
                     
@@ -378,14 +397,21 @@ def menu():
                 if(level_rect.colliderect(cursor_rect)):
                     level%=4
                     level+=1
+                if(bgm_rect.colliderect(cursor_rect)):
+                    bgm.stop()
+                    bgmn%=len(bgms)
+                    bgmn+=1
+                    bgm=bgms[bgmn-1]
+                    if not ch:
+                        ch=bgm.play(-1)
         # button 1
         pygame.draw.rect(screen, colord if play_rect.colliderect(cursor_rect) else colorl, play_rect)
         pygame.draw.rect(screen, colord if level_rect.colliderect(cursor_rect) else colorl, level_rect)
+        pygame.draw.rect(screen, colord if bgm_rect.colliderect(cursor_rect) else colorl, bgm_rect)
         
-        text_rect = play_text.get_rect(center=play_rect.center)
-        
-        screen.blit(play_text, text_rect)
+        screen.blit(play_text, play_text.get_rect(center=play_rect.center))
         screen.blit(level_text, level_text.get_rect(center=level_rect.center))
+        screen.blit(bgm_text, bgm_text.get_rect(center=bgm_rect.center))
         
         screen.blit(cursor_img,cursor_rect)
         pygame.display.flip()
@@ -434,7 +460,7 @@ def end():
         pygame.display.flip()
         clock.tick(fps)
 
-
+bgm=bgms[bgmn-1]
 menu()
 
 # main game loop 
@@ -449,9 +475,11 @@ spawn_time=5000
 cost_text:list[tuple[pygame.Surface,tuple[int,int]]]=[] # i myself got confused so wrote this huge description
 damage_text:list[tuple[pygame.Surface,tuple[int,int]]]=[]
 running=True
-bgm.play(-1)
+if(not ch):
+    bgm.play(-1)
 bgm.set_volume(0.3)
 while running:
+    bgm=bgms[bgmn-1]
     pygame.event.set_grab(False)
     pygame.mouse.set_visible(False)
     frame_count+=1
