@@ -1,3 +1,5 @@
+import math
+
 import pygame
 import random
 
@@ -9,37 +11,55 @@ width,height=screen.get_size()
 # simulation thingys
 fps=60
 frame_count = 0
-g=5
-radius=20
+g=500
 
 class Ball:
     def __init__(self):
         self.x,self.y=width//2,height//2
-        self.vx,self.vy=random.randint(-50,50),random.randint(-50,50)
+        self.vx,self.vy=random.randint(-500,500),random.randint(-500,500)
         self.color=(random.randint(0,255),random.randint(0,255),random.randint(0,255))  
+        self.radius=random.randint(10,30)
         self.rect=None
-    def update(self):
+        self.mass=self.radius**3 * 0.001
+    def update(self,fps=fps):
         global g
-        self.vx*=0.99
-        self.vy+=g
-        self.vy*=0.99
-        self.x+=self.vx
-        self.y+=self.vy
-        if self.x <= radius:
-            self.x = radius
-            self.vx *= -0.9
-        elif self.x >= width-radius:
-            self.x = width-radius
-            self.vx *= -0.9
+        self.vx*=0.999
+        self.vy+=g*(1/fps)
+        self.vy*=0.999
+        self.x+=self.vx*(1/fps)
+        self.y+=self.vy*(1/fps)
+        if self.x <= self.radius:
+            self.x = self.radius
+            self.vx *= -0.99
+        elif self.x >= width-self.radius:
+            self.x = width-self.radius
+            self.vx *= -0.99
 
-        if self.y <= radius:
-            self.y = radius
-            self.vy *= -0.9
-        elif self.y >= height-radius:
-            self.y = height-radius
-            self.vy *= -0.9
+        if self.y <= self.radius:
+            self.y = self.radius
+            self.vy *= -0.99
+        elif self.y >= height-self.radius:
+            self.y = height-self.radius
+            self.vy *= -0.99
+    def collision(self,other:'Ball'):
+        # i have to write a beatifull collision algorithm here
+        # but for now just push them apart a bit and assume a perfectly elastic collision
+        dx=self.x-other.x
+        dy=self.y-other.y
+        distance=math.sqrt(dx**2+dy**2)
+        if distance<self.radius+other.radius:
+            # push them apart 
+            overlap=self.radius+other.radius-distance
+            self.x+=overlap*(dx/distance)/2
+            self.y+=overlap*(dy/distance)/2
+            other.x-=overlap*(dx/distance)/2
+            other.y-=overlap*(dy/distance)/2
+            
+            self.vx,other.vx=other.vx,self.vx
+            self.vy,other.vy=other.vy,self.vy
+            # i just realised that mass is not being used at all, so i will just ignore it for now
     def display(self,screen:'pygame.Surface'):
-        self.rect=pygame.draw.circle(screen,self.color,(self.x,self.y),radius)
+        self.rect=pygame.draw.circle(screen,self.color,(self.x,self.y),self.radius)
 
 
 balls=[]
@@ -52,7 +72,13 @@ while running:
                 balls.append(Ball())
     screen.fill("#1D1D1D")
     for ball in balls:
-        ball.update()
+        ball.update(clock.get_fps())
+        
+        for other in balls:
+            if ball!=other:
+                ball.collision(other)
         ball.display(screen)
+    # a simple fps counter
+    screen.blit(pygame.font.Font(None, 30).render(f"FPS: {int(clock.get_fps())},    Balls: {len(balls)}", True, (255, 255, 255)), (10, 10))
     pygame.display.flip()
     clock.tick(fps)
