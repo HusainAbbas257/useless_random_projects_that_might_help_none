@@ -11,14 +11,15 @@ width,height=screen.get_size()
 # simulation thingys
 fps=60
 frame_count = 0
-g=500
+g=400
 
 class Ball:
     def __init__(self):
         self.x,self.y=width//2,height//2
         self.vx,self.vy=random.randint(-500,500),random.randint(-500,500)
         self.color=(random.randint(0,255),random.randint(0,255),random.randint(0,255))  
-        self.radius=random.randint(10,30)
+        # since mass logic is yet to be implemed make radius constant
+        self.radius=15
         self.rect=None
         self.mass=self.radius**3 * 0.001
     def update(self,fps=fps):
@@ -44,11 +45,10 @@ class Ball:
         self.vx=round(self.vx,2)
         self.vy=round(self.vy,2)
     def collision(self,other:'Ball'):
-        # i have to write a beatifull collision algorithm here
-        # but for now just push them apart a bit and assume a perfectly elastic collision
         dx=self.x-other.x
         dy=self.y-other.y
         distance=math.sqrt(dx**2+dy**2)
+        distance=max(distance,0.01) #to avoid /0
         if distance<self.radius+other.radius:
             # normal vector
             normal_vec=((other.x-self.x)/distance,(other.y-self.y)/distance)
@@ -61,16 +61,15 @@ class Ball:
             tangent_component_self=self.vx*tangent_vec[0]+self.vy*tangent_vec[1]
             tangent_component_other=other.vx*tangent_vec[0]+other.vy*tangent_vec[1] 
             
+            # damping velocity is unrealisti just damp normal component to make it look better
+            normal_component_other*=0.9
+            normal_component_self*=0.9
+            
             self.vx=tangent_component_self*tangent_vec[0]+normal_component_other*normal_vec[0]
             self.vy=tangent_component_self*tangent_vec[1]+normal_component_other*normal_vec[1]
             other.vx=tangent_component_other*tangent_vec[0]+normal_component_self*normal_vec[0]
             other.vy=tangent_component_other*tangent_vec[1]+normal_component_self*normal_vec[1]
             
-            # a little damping to make it look better
-            self.vx*=0.9
-            self.vy*=0.9
-            other.vx*=0.9
-            other.vy*=0.9
             
             # push them apart 
             overlap=self.radius+other.radius-distance
@@ -89,7 +88,8 @@ while running:
         if event.type==pygame.QUIT: running=False
         if(event.type==pygame.KEYDOWN):
             if(event.key==pygame.K_SPACE):
-                balls.append(Ball())
+                for _ in range(5):
+                    balls.append(Ball())
     screen.fill("#1D1D1D")
     for ball in balls:
         ball.update(clock.get_fps())
