@@ -33,15 +33,20 @@ class Ball:
         self.radius=15
         self.rect=None
         self.mass=(4/3)*math.pi*self.radius**3*0.0001 
+        self.normal=False #wether a normal force acting on it or not
+        
     def update(self,fps=fps):
         self.color=color(self.color)
         global g
         self.vel*=0.99
-        self.vel+=g*(1/fps)
-        if(self.pos.x==self.radius ):
-            # apply normal reaction and friction
-            self.vel-=g*(1/fps)
-            self.vel*=0.9
+        if not self.normal:
+            self.vel+=g*(1/fps)
+        if(self.pos.x<=self.radius*1.1 ): #a little more to take in the edge cases
+            # apply friction
+            self.normal=True
+            self.vel.x*=0.85
+        else:
+            self.normal=False
         self.pos.x+=self.vel.x*(1/fps)
         self.pos.y+=self.vel.y*(1/fps)
         if self.pos.x <= self.radius:
@@ -90,6 +95,17 @@ class Ball:
             self.pos.y+=overlap*(dy/distance)/2
             other.pos.x-=overlap*(dx/distance)/2
             other.pos.y-=overlap*(dy/distance)/2
+            
+            # check if it is on top of other :
+            if(self.pos.y>other.pos.y and distance*1.01<self.radius+other.radius and abs(dx)<self.radius+other.radius and abs(dy)<self.radius+other.radius):
+                self.normal=other.normal
+            else:
+                self.normal=False
+            if(other.pos.y>self.pos.y and abs(dx)<self.radius+other.radius and abs(dy)<self.radius+other.radius and distance*1.01<self.radius+other.radius):
+                other.normal=self.normal
+            else:
+                other.normal=False
+            
     def display(self,screen:'pygame.Surface'):
         self.rect=pygame.draw.circle(screen,self.color,(self.pos.x,self.pos.y),self.radius)
 
