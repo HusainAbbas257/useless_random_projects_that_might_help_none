@@ -1,5 +1,4 @@
 import math
-
 import pygame
 import random
 
@@ -11,8 +10,7 @@ width,height=screen.get_size()
 # simulation thingys
 fps=60
 frame_count = 0
-g=400
-
+g=600
 class Ball:
     def __init__(self):
         self.x,self.y=width//2,height//2
@@ -21,27 +19,31 @@ class Ball:
         # since mass logic is yet to be implemed make radius constant
         self.radius=15
         self.rect=None
-        self.mass=self.radius**3 * 0.001
+        self.mass=(4/3)*math.pi*self.radius**3*0.0001 
     def update(self,fps=fps):
         global g
-        self.vx*=0.999
+        self.vx*=0.99
         self.vy+=g*(1/fps)
-        self.vy*=0.999
+        self.vy*=0.99
+        if(self.x==self.radius ):
+            # apply normal reaction and friction
+            self.vx-=g*(1/fps)
+            self.vx*=0.9
         self.x+=self.vx*(1/fps)
         self.y+=self.vy*(1/fps)
         if self.x <= self.radius:
             self.x = self.radius
-            self.vx *= -0.99
+            self.vx *= -0.9
         elif self.x >= width-self.radius:
             self.x = width-self.radius
-            self.vx *= -0.99
+            self.vx *= -0.9
 
         if self.y <= self.radius:
             self.y = self.radius
-            self.vy *= -0.99
+            self.vy *= -0.9
         elif self.y >= height-self.radius:
             self.y = height-self.radius
-            self.vy *= -0.99
+            self.vy *= -0.9
         self.vx=round(self.vx,2)
         self.vy=round(self.vy,2)
     def collision(self,other:'Ball'):
