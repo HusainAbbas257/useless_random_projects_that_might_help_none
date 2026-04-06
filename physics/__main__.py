@@ -1,7 +1,7 @@
 import math
 import pygame
 import random
-
+from vector import *
 pygame.init()
 screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
 clock=pygame.time.Clock()
@@ -10,11 +10,11 @@ width,height=screen.get_size()
 # simulation thingys
 fps=60
 frame_count = 0
-g=600
+g=acceleration(0,600)
 class Ball:
     def __init__(self):
-        self.x,self.y=width//2,height//2
-        self.vx,self.vy=random.randint(-500,500),random.randint(-500,500)
+        self.pos=position(width//2,height//2)
+        self.vel=velocity(random.randint(-500,500),random.randint(-500,500))
         self.color=(random.randint(0,255),random.randint(0,255),random.randint(0,255))  
         # since mass logic is yet to be implemed make radius constant
         self.radius=15
@@ -22,65 +22,62 @@ class Ball:
         self.mass=(4/3)*math.pi*self.radius**3*0.0001 
     def update(self,fps=fps):
         global g
-        self.vx*=0.99
-        self.vy+=g*(1/fps)
-        self.vy*=0.99
-        if(self.x==self.radius ):
+        self.vel*=0.99
+        self.vel+=g*(1/fps)
+        if(self.pos.x==self.radius ):
             # apply normal reaction and friction
-            self.vx-=g*(1/fps)
-            self.vx*=0.9
-        self.x+=self.vx*(1/fps)
-        self.y+=self.vy*(1/fps)
-        if self.x <= self.radius:
-            self.x = self.radius
-            self.vx *= -0.9
-        elif self.x >= width-self.radius:
-            self.x = width-self.radius
-            self.vx *= -0.9
+            self.vel-=g*(1/fps)
+            self.vel*=0.9
+        self.pos.x+=self.vel.x*(1/fps)
+        self.pos.y+=self.vel.y*(1/fps)
+        if self.pos.x <= self.radius:
+            self.pos.x = self.radius
+            self.vel.x *= -0.9
+        elif self.pos.x >= width-self.radius:
+            self.pos.x = width-self.radius
+            self.vel.x *= -0.9
 
-        if self.y <= self.radius:
-            self.y = self.radius
-            self.vy *= -0.9
-        elif self.y >= height-self.radius:
-            self.y = height-self.radius
-            self.vy *= -0.9
-        self.vx=round(self.vx,2)
-        self.vy=round(self.vy,2)
+        if self.pos.y <= self.radius:
+            self.pos.y = self.radius
+            self.vel.y *= -0.9
+        elif self.pos.y >= height-self.radius:
+            self.pos.y = height-self.radius
+            self.vel.y *= -0.9
+        self.vel.roundoff()
     def collision(self,other:'Ball'):
-        dx=self.x-other.x
-        dy=self.y-other.y
+        dx=self.pos.x-other.pos.x
+        dy=self.pos.y-other.pos.y
         distance=math.sqrt(dx**2+dy**2)
         distance=max(distance,0.01) #to avoid /0
         if distance<self.radius+other.radius:
             # normal vector
-            normal_vec=((other.x-self.x)/distance,(other.y-self.y)/distance)
-            
+            normal_vec=(other.pos-self.pos)/distance 
             # tangent vector
-            tangent_vec=(-normal_vec[1],normal_vec[0])
+            tangent_vec=normal_vec.tangent()
             
-            normal_component_self=self.vx*normal_vec[0]+self.vy*normal_vec[1]
-            normal_component_other=other.vx*normal_vec[0]+other.vy*normal_vec[1]
-            tangent_component_self=self.vx*tangent_vec[0]+self.vy*tangent_vec[1]
-            tangent_component_other=other.vx*tangent_vec[0]+other.vy*tangent_vec[1] 
+            normal_component_self=self.vel.dot(normal_vec)
+            normal_component_other=other.vel.dot(normal_vec)
+            tangent_component_self=self.vel.dot(tangent_vec)
+            tangent_component_other=other.vel.dot(tangent_vec)
             
             # damping velocity is unrealisti just damp normal component to make it look better
-            normal_component_other*=0.9
-            normal_component_self*=0.9
+            normal_component_other*=0.8
+            normal_component_self*=0.8
             
-            self.vx=tangent_component_self*tangent_vec[0]+normal_component_other*normal_vec[0]
-            self.vy=tangent_component_self*tangent_vec[1]+normal_component_other*normal_vec[1]
-            other.vx=tangent_component_other*tangent_vec[0]+normal_component_self*normal_vec[0]
-            other.vy=tangent_component_other*tangent_vec[1]+normal_component_self*normal_vec[1]
+            self.vel.x=tangent_component_self*tangent_vec.x+normal_component_other*normal_vec.x
+            self.vel.y=tangent_component_self*tangent_vec.y+normal_component_other*normal_vec.y
+            other.vel.x=tangent_component_other*tangent_vec.y+normal_component_self*normal_vec.y
+            other.vel.y=tangent_component_other*tangent_vec.y+normal_component_self*normal_vec.y
             
             
             # push them apart 
             overlap=self.radius+other.radius-distance
-            self.x+=overlap*(dx/distance)/2
-            self.y+=overlap*(dy/distance)/2
-            other.x-=overlap*(dx/distance)/2
-            other.y-=overlap*(dy/distance)/2
+            self.pos.x+=overlap*(dx/distance)/2
+            self.pos.y+=overlap*(dy/distance)/2
+            other.pos.x-=overlap*(dx/distance)/2
+            other.pos.y-=overlap*(dy/distance)/2
     def display(self,screen:'pygame.Surface'):
-        self.rect=pygame.draw.circle(screen,self.color,(self.x,self.y),self.radius)
+        self.rect=pygame.draw.circle(screen,self.color,(self.pos.x,self.pos.y),self.radius)
 
 
 balls=[]
