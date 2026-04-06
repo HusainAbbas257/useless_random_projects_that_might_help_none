@@ -7,6 +7,19 @@ screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
 clock=pygame.time.Clock()
 width,height=screen.get_size()
 
+
+
+# helper funciton 
+
+def color(prev:tuple[int,int,int])->tuple[int,int,int]:
+    color = pygame.Color(prev)
+    hsva=(color.hsva)
+    hue=hsva[0]+random.randint(5,10)
+    hue=hue%360
+    color.hsva=(hue,hsva[1],100,hsva[3])
+    return color.r,color.g,color.b
+
+
 # simulation thingys
 fps=60
 frame_count = 0
@@ -21,6 +34,7 @@ class Ball:
         self.rect=None
         self.mass=(4/3)*math.pi*self.radius**3*0.0001 
     def update(self,fps=fps):
+        self.color=color(self.color)
         global g
         self.vel*=0.99
         self.vel+=g*(1/fps)
