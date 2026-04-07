@@ -76,5 +76,10 @@ class acceleration(Vector):
         '''initializes the acceleration with x and y components'''
         super().__init__(x,y)
         
-
+class force(Vector):
+    '''a simple force class that inherits from vector'''
+    
+    def __init__(self,x=0,y=0):
+        '''initializes the force with x and y components'''
+        super().__init__(x,y)
     
