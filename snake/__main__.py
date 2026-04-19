@@ -6,8 +6,7 @@ import math
 screen = pygame.display.set_mode((985,745))
 width,height=screen.get_size()
 clock = pygame.time.Clock()
-fps=120
-
+fps=15
 
 
 class Board:
@@ -15,16 +14,21 @@ class Board:
         self.x,self.y=x,y
         self.board=[[0 for i in range(x)] for j in range(y)]
         self.w,self.h=24,24
-        self.snakes=[]
+        self.snakes:list['Snake']=[]
+        self.apple=[random.randint(0,39),random.randint(0,29)]
     def update(self):
         self.board=[[0 for i in range(self.x)] for j in range(self.y)]
         n_empty=[]
         for s in self.snakes:
-            
             n_empty.extend(s.update())
+            if(s.head.pos==self.apple):
+                 print('eating one apple')
+                 s.eat()
+                 self.apple=[random.randint(0,39),random.randint(0,29)]
+                 print(self.apple)
         for b in n_empty:
             self.board[b[0]][b[1]]=1
-            
+        self.board[self.apple[0]][self.apple[1]]=5
         
     def display(self,screen:'pygame.Surface'):
         for i in range(len(self.board)):
@@ -32,10 +36,10 @@ class Board:
 
                 r=pygame.Rect(0,0,self.w,self.h)
                 r.center=(self.w*(i)+self.w,self.h*(j)+self.h)
-                pygame.draw.rect(screen, '#ffffff'if self.board[i][j]==0 else '#000000', r)
+                pygame.draw.rect(screen,{0:"#7f748d",1:"#2B8D3C",5:"#813131"}[self.board[i][j]], r)
 class cell:
     def __init__(self,x,y,next,direction=None):
-        self.pos=[x,y]
+        self.pos:list[int,int]=[x,y]
         self.direction=direction
         self.next=next
     def update(self):
@@ -77,8 +81,12 @@ class Snake:
             c=c.next
         self.head.update()
         return [c.pos for c in self.body]
+    def eat(self):
+        c=cell(self.tail.pos[0],self.tail.pos[1]+1,self.body[-1],'s')
+        c.update()
+        self.body.append(c)
+        self.tail=c
     
-        
 s=Snake()
 b=Board(30,40)
 b.snakes=[s]
