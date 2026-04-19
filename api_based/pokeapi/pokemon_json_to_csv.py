@@ -1,5 +1,5 @@
 import json,csv
-import pokemon
+import api_based.pokeapi.pokemon as pokemon
 pokemons=pokemon.list_pokemons()
 with open('pokemons.csv','w',newline='') as csvfile:
     fieldnames=['id','name','height','weight','types']
