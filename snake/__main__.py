@@ -6,9 +6,14 @@ import math
 screen = pygame.display.set_mode((985,745))
 width,height=screen.get_size()
 clock = pygame.time.Clock()
+font=pygame.sysfont.SysFont('Arial',30,True,True)
+# music
+bgm=pygame.mixer.Sound('snake/music.mp3')
+move=pygame.mixer.Sound('snake/move.mp3')
+food=pygame.mixer.Sound('snake/food.mp3')
 fps=15
 
-
+bgm.play(-1)
 class Board:
     def __init__(self,x,y):
         self.x,self.y=x,y
@@ -82,6 +87,7 @@ class Snake:
         self.head.update()
         return [c.pos for c in self.body]
     def eat(self):
+        food.play(1)
         c=cell(self.tail.pos[0],self.tail.pos[1]+1,self.body[-1],'s')
         c.update()
         self.body.append(c)
@@ -97,14 +103,20 @@ while running:
         if event.type==pygame.KEYDOWN:
             if event.key==pygame.K_w and s.head.direction!='s':
                 s.head.direction='w'
+                move.play(1)
             if event.key==pygame.K_s and s.head.direction!='w'  :
                 s.head.direction='s'
+                move.play(1)
             if event.key==pygame.K_a and s.head.direction!='d'  :
                 s.head.direction='a'
+                move.play(1)
             if event.key==pygame.K_d and s.head.direction!='a':
                 s.head.direction='d'
+                move.play(1)
     screen.fill("#3f2fce")
     b.update()
     b.display(screen)
+    fr=font.render(f'score: {len(b.snakes[0].body)-9}',True,(50,50,50))
+    screen.blit(fr,(10,10))
     pygame.display.flip()
     clock.tick(fps)
