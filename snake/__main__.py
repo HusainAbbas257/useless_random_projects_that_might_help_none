@@ -20,8 +20,8 @@ class Board:
         self.board=[[0 for i in range(self.x)] for j in range(self.y)]
         n_empty=[]
         for s in self.snakes:
-            s.update()
-            n_empty.extend(s.body)
+            
+            n_empty.extend(s.update())
         for b in n_empty:
             self.board[b[0]][b[1]]=1
             
@@ -33,34 +33,52 @@ class Board:
                 r=pygame.Rect(0,0,self.w,self.h)
                 r.center=(self.w*(i)+self.w,self.h*(j)+self.h)
                 pygame.draw.rect(screen, '#ffffff'if self.board[i][j]==0 else '#000000', r)
+class cell:
+    def __init__(self,x,y,next,direction=None):
+        self.pos=[x,y]
+        self.direction=direction
+        self.next=next
+    def update(self):
+        match self.direction:
+                case 's':
+                    self.pos[1]+=1
+                case 'w':
+                    self.pos[1]-=1
+                case 'a':
+                    self.pos[0]-=1
+                case 'd':
+                    self.pos[0]+=1
+
+        if self.pos[0]<0:
+                self.pos[0]=40+self.pos[0]
+        if self.pos[0]>=40:
+                self.pos[0]=40-self.pos[0]
+
+        if self.pos[1]<0:
+                self.pos[1]=30+self.pos[1]
+        if self.pos[1]>=30:
+                self.pos[1]=30-self.pos[1]
 class Snake:
     def __init__(self,x=1,y=1):
         
-        self.head=[x,y]
-        self.body=[self.head,[1,0]]
+        self.head=cell(0,5,None,'s')
+        self.tail=cell(0,1,self.head,'s')
+        self.body=[self.head]
+        for i in range(2,10):
+            c=cell(0,i,self.body[-1],'s')
+            self.body.append(c)
+            self.tail=c
         self.direction='s'
     def update(self):
-        for i in range(len(self.body)):
-            match self.direction:
-                case 's':
-                    self.body[i][1]+=1
-                case 'w':
-                    self.body[i][1]-=1
-                case 'a':
-                    self.body[i][0]-=1
-                case 'd':
-                    self.body[i][0]+=1
-
-            if self.body[i][0]<0:
-                self.body[i][0]=40+self.body[i][0]
-            if self.body[i][0]>=40:
-                self.body[i][0]=40-self.body[i][0]
-
-            if self.body[i][1]<0:
-                self.body[i][1]=30+self.body[i][1]
-            if self.body[i][1]>=30:
-                self.body[i][1]=30-self.body[i][1]
+        # only updating head and making others follow their next
+        c=self.tail
+        while c.next!=None:
+            c.pos=c.next.pos.copy()
+            c=c.next
+        self.head.update()
+        return [c.pos for c in self.body]
     
+        
 s=Snake()
 b=Board(30,40)
 b.snakes=[s]
@@ -69,14 +87,14 @@ while running:
     for event in pygame.event.get():
         if event.type==pygame.QUIT: running=False
         if event.type==pygame.KEYDOWN:
-            if event.key==pygame.K_w:
-                s.direction='w'
-            if event.key==pygame.K_s:
-                s.direction='s'
-            if event.key==pygame.K_a:
-                s.direction='a'
-            if event.key==pygame.K_d:
-                s.direction='d'
+            if event.key==pygame.K_w and s.head.direction!='s':
+                s.head.direction='w'
+            if event.key==pygame.K_s and s.head.direction!='w'  :
+                s.head.direction='s'
+            if event.key==pygame.K_a and s.head.direction!='d'  :
+                s.head.direction='a'
+            if event.key==pygame.K_d and s.head.direction!='a':
+                s.head.direction='d'
     screen.fill("#3f2fce")
     b.update()
     b.display(screen)
